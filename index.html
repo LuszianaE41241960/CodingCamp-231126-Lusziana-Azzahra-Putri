@@ -74,7 +74,8 @@
                         <input
                             type="text"
                             id="itemName"
-                            placeholder="Contoh: Makan siang"
+                            placeholder="e.g. Lunch"
+                            maxlength="80"
                             required
                         >
                     </div>
@@ -141,6 +142,7 @@
                             <option value="oldest">Terlama</option>
                             <option value="lowest">Nominal terendah</option>
                             <option value="highest">Nominal tertinggi</option>
+                            <option value="category">Category (A–Z)</option>
                         </select>
 
                         <select id="categoryFilter">
@@ -182,6 +184,29 @@
     </div>
 
     <script src="js/script.js"></script>
+
+    <noscript>
+        <div style="
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f5f7fc;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            text-align: center;
+            padding: 24px;
+        ">
+            <div style="max-width: 400px;">
+                <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+                <h2 style="font-size: 20px; color: #202b42; margin-bottom: 12px;">JavaScript Required</h2>
+                <p style="color: #8490a5; font-size: 14px; line-height: 1.6;">
+                    Expense &amp; Budget Visualizer requires JavaScript to run.
+                    Please enable JavaScript in your browser settings and reload the page.
+                </p>
+            </div>
+        </div>
+    </noscript>
 
 </body>
 </html>
