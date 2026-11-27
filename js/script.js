@@ -53,7 +53,7 @@ function loadTransactions() {
             !Number.isNaN(new Date(item.date).getTime())
         ) : [];
     } catch (error) {
-        console.error("Gagal membaca data transaksi:", error);
+        console.error("Failed to load transactions:", error);
         return [];
     }
 }
@@ -62,8 +62,8 @@ function saveTransactions() {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
     } catch (error) {
-        console.error("Gagal menyimpan transaksi:", error);
-        alert("Data gagal disimpan. Periksa penyimpanan browser kamu.");
+        console.error("Failed to save transactions:", error);
+        alert("Your data could not be saved. Please check your browser storage settings.");
     }
 }
 
@@ -106,12 +106,12 @@ transactionForm.addEventListener("submit", function (event) {
     const category = categoryInput.value;
 
     if (!name || !amountInput.value.trim() || !category) {
-        alert("Semua kolom wajib diisi!");
+        alert("All fields are required.");
         return;
     }
 
     if (!Number.isSafeInteger(amount) || amount <= 0) {
-        alert("Nominal harus berupa bilangan bulat lebih dari 0!");
+        alert("Amount must be a whole number greater than 0.");
         return;
     }
 
@@ -137,7 +137,7 @@ transactionForm.addEventListener("submit", function (event) {
 // ==========================================
 
 function deleteTransaction(id) {
-    const confirmed = confirm("Yakin ingin menghapus transaksi ini?");
+    const confirmed = confirm("Are you sure you want to delete this transaction?");
 
     if (!confirmed) return;
 
@@ -182,7 +182,8 @@ function updateMonthlySummary() {
 function renderTransactions() {
     transactionList.innerHTML = "";
 
-    let filteredTransactions = [...transactions];
+    const selectedMonth = getSelectedMonth();
+    let filteredTransactions = getMonthTransactions(selectedMonth);
 
     const selectedCategory = categoryFilter.value;
 
@@ -206,13 +207,17 @@ function renderTransactions() {
         filteredTransactions.sort((a, b) => a.amount - b.amount);
     } else if (sortValue === "highest") {
         filteredTransactions.sort((a, b) => b.amount - a.amount);
+    } else if (sortValue === "category") {
+        filteredTransactions.sort((a, b) =>
+            a.category.localeCompare(b.category)
+        );
     }
 
     if (filteredTransactions.length === 0) {
         transactionList.innerHTML = `
             <div class="empty-state">
-                <p>Belum ada transaksi.</p>
-                <p>Tambahkan pengeluaran pertamamu!</p>
+                <p>No transactions found.</p>
+                <p>Add your first expense using the form above!</p>
             </div>
         `;
         return;
@@ -230,7 +235,7 @@ function renderTransactions() {
 
         const date = document.createElement("p");
         date.textContent = new Date(transaction.date).toLocaleDateString(
-            "id-ID",
+            "en-GB",
             {
                 day: "numeric",
                 month: "long",
@@ -257,7 +262,7 @@ function renderTransactions() {
         deleteButton.textContent = "Delete";
         deleteButton.setAttribute(
             "aria-label",
-            `Hapus transaksi ${transaction.name}`
+            `Delete transaction: ${transaction.name}`
         );
 
         deleteButton.addEventListener("click", () => {
@@ -277,34 +282,61 @@ function renderTransactions() {
 
 function updateChart() {
     if (typeof Chart === "undefined") {
-        console.error("Chart.js belum berhasil dimuat.");
+        console.error("Chart.js failed to load.");
         return;
     }
 
-    const categories = ["Food", "Transport", "Fun"];
+    const selectedMonth = getSelectedMonth();
+    const monthTransactions = getMonthTransactions(selectedMonth);
 
-    const categoryTotals = categories.map(category => {
-        return calculateTotal(
-            transactions.filter(transaction =>
-                transaction.category === category
-            )
-        );
-    });
+    const allCategories = ["Food", "Transport", "Fun"];
+    const allColors = {
+        Food: "#6BCB77",
+        Transport: "#4D96FF",
+        Fun: "#FFB347"
+    };
+
+    // Build category totals for the selected month only
+    const categoryTotals = allCategories.map(category => ({
+        label: category,
+        value: calculateTotal(
+            monthTransactions.filter(t => t.category === category)
+        ),
+        color: allColors[category]
+    }));
+
+    // Remove categories with zero spending so they don't appear in the legend
+    const activeCategories = categoryTotals.filter(c => c.value > 0);
+
+    if (activeCategories.length === 0) {
+        // No spending this month — destroy any existing chart and show placeholder
+        if (expenseChart) {
+            expenseChart.destroy();
+            expenseChart = null;
+        }
+        expenseChartCanvas.style.display = "none";
+
+        let placeholder = expenseChartCanvas.parentElement.querySelector(".chart-placeholder");
+        if (!placeholder) {
+            placeholder = document.createElement("div");
+            placeholder.className = "chart-placeholder empty-state";
+            expenseChartCanvas.parentElement.appendChild(placeholder);
+        }
+        placeholder.textContent = "No spending data for this month.";
+        return;
+    }
+
+    // Spending exists — ensure canvas is visible and placeholder is removed
+    expenseChartCanvas.style.display = "";
+    const placeholder = expenseChartCanvas.parentElement.querySelector(".chart-placeholder");
+    if (placeholder) placeholder.remove();
 
     const chartData = {
-        labels: categories,
+        labels: activeCategories.map(c => c.label),
         datasets: [{
-            data: categoryTotals,
-            backgroundColor: [
-                "#6BCB77",
-                "#4D96FF",
-                "#FFB347"
-            ],
-            borderColor: [
-                "#6BCB77",
-                "#4D96FF",
-                "#FFB347"
-            ],
+            data: activeCategories.map(c => c.value),
+            backgroundColor: activeCategories.map(c => c.color),
+            borderColor: activeCategories.map(c => c.color),
             borderWidth: 2
         }]
     };
@@ -354,7 +386,7 @@ function initializeTheme() {
     try {
         savedTheme = localStorage.getItem(THEME_KEY) || "light";
     } catch (error) {
-        console.error("Gagal membaca tema:", error);
+        console.error("Failed to load theme preference:", error);
     }
 
     applyTheme(savedTheme);
@@ -369,7 +401,7 @@ themeToggle.addEventListener("click", function () {
     try {
         localStorage.setItem(THEME_KEY, newTheme);
     } catch (error) {
-        console.error("Gagal menyimpan tema:", error);
+        console.error("Failed to save theme preference:", error);
     }
 });
 
@@ -381,7 +413,7 @@ sortFilter.addEventListener("change", renderTransactions);
 
 categoryFilter.addEventListener("change", renderTransactions);
 
-monthFilter.addEventListener("change", updateMonthlySummary);
+monthFilter.addEventListener("change", renderApp);
 
 // ==========================================
 // 12. RENDER APPLICATION
@@ -403,4 +435,4 @@ monthFilter.value = getCurrentMonth();
 initializeTheme();
 renderApp();
 
-console.log("Expense & Budget Visualizer berhasil dijalankan!");
+console.log("Expense & Budget Visualizer loaded successfully!");
